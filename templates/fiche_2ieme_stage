@@ -1,50 +1,50 @@
-# EXEMPLE FICHE DE SITUATION PROFESSIONNELLE — BLOC 1 (ÉPREUVE E5)
+# FICHE DE SITUATION PROFESSIONNELLE — BLOC 1 (ÉPREUVE E5)
 
 ## 1. IDENTIFICATION GÉNÉRALE
-- **Titre de la réalisation :** [Ex : Déploiement d'un agent de supervision et inventaire GLPI]
-- **Cadre de réalisation :** [ ] Stage 1  [ ] Stage 2  [ ] Atelier de professionnalisation  [ ] Projet de cours
-- **Période de réalisation :** [Mois / Année]
-- **Modalité :** [ ] Individuel  [ ] En équipe (préciser le nombre de collaborateurs)
-- **Localisation / Organisation cliente :** [Nom de l'entreprise d'accueil ou établissement]
+- **Titre de la réalisation :** Mise en place d'un NAS sécurisé accessible depuis l'extérieur (DDNS, SSH, FTPS, RAID 0, ACL)
+- **Cadre de réalisation :** [ ] Stage 1  [x] Stage 2  [ ] Atelier de professionnalisation  [ ] Projet de cours
+- **Période de réalisation :** Janvier/Février 2026 (6 semaines)
+- **Modalité :** [x] Individuel (sous l'encadrement du tuteur de stage, Julien Grenaille)  [ ] En équipe
+- **Localisation / Organisation cliente :** Association Détours en Cinécourt — Saint-Geniès-Bellevue (31)
 
 ## 2. CONTEXTE ET OBJECTIFS
-- **Contexte organisationnel :** Présentation succincte de l'organisation et du système informatique support.
-- **Problématique / Besoin exprimé :** Quel était le problème à résoudre ou le besoin métier à couvrir ?
-- **Objectifs fixés :** Quels résultats attendus devaient être atteints ?
+- **Contexte organisationnel :** Détours en Cinécourt est une association loi 1901 créée en 1998, animée par une équipe de bénévoles. Elle organise chaque année en juin un festival international de courts-métrages au cinéma Le Ventura, des séances itinérantes « Hors les murs » et des actions de sensibilisation en milieu scolaire. Elle reçoit et visionne plus de 1 000 courts-métrages par an pour en sélectionner environ 70. Le système informatique support se compose d'un NAS sous OpenMediaVault, relié à Internet par une Freebox, et de postes clients Windows utilisés par les bénévoles.
+- **Problématique / Besoin exprimé :** Les fichiers vidéo des courts-métrages, nombreux et volumineux, étaient partagés de manière peu structurée. Cela posait trois problèmes : une capacité de stockage limitée et dispersée sur plusieurs supports, un accès à distance compliqué pour les bénévoles répartis géographiquement, et l'absence de cloisonnement des droits (tous les utilisateurs avaient les mêmes permissions, avec un risque de modification involontaire des fichiers).
+- **Objectifs fixés :** Rendre le NAS joignable depuis Internet via un nom de domaine stable (DNS dynamique), sécuriser les accès (SSH sur un port non standard et transferts de fichiers chiffrés en FTPS), regrouper la capacité de stockage en un volume unique (RAID 0 d'environ 7,3 To) et différencier les droits des utilisateurs (lecture seule ou lecture-écriture) à l'aide des ACL Linux.
 
 ## 3. DÉMARCHE ET ENVIRONNEMENT TECHNIQUE
 - **Environnement technologique mobilisé :**
-  - Systèmes d'exploitation utilisés (ex : Debian 12, Windows Server 2022)
-  - Logiciels, rôles ou paquets installés (ex : GLPI, agent FusionInventory/GLPI, MariaDB, Apache)
-  - Matériels ou éléments d'infrastructure concernés
+  - Systèmes d'exploitation utilisés : OpenMediaVault 8 (basé sur Debian 13, noyau Linux 6.12) côté NAS, Windows côté postes clients
+  - Logiciels, rôles ou paquets installés : OpenMediaVault (administration web), extension openmediavault-ftp (ProFTPD) pour le FTP/FTPS, OpenSSH, Docker et Docker Compose (client NoIP), mdadm (RAID logiciel), setfacl (ACL POSIX), service DDNS NoIP (noip.com), PuTTY et WinSCP côté client
+  - Matériels ou éléments d'infrastructure concernés : NAS équipé de deux disques de 3,6 To, box Internet Freebox (redirections de ports, DMZ, nom de domaine), adresse locale du NAS 192.168.1.50
 - **Démarche suivie étape par étape :**
-  1. Analyse préalable et préparation de la maquette
-  2. Configuration et mise en œuvre technique
-  3. Tests d'acceptation et vérification du bon fonctionnement
-- **Gestion des imprévus / Incidents rencontrés :** Difficultés techniques rencontrées et solutions apportées.
+  1. Analyse préalable et préparation de la maquette : recueil des besoins de l'association (stockage, accès distant des bénévoles, séparation des droits), définition des objectifs avec le tuteur, choix des technologies (DDNS NoIP, SSH, FTPS, RAID 0, ACL) et création d'un compte NoIP avec le nom d'hôte detoursomv.serveftp.com et sa clé DDNS.
+  2. Configuration et mise en œuvre technique : connexion au NAS en SSH avec PuTTY et création d'un utilisateur d'administration dédié (omvssh) ajouté au groupe sudo ; installation de Docker et déploiement du client NoIP dans un conteneur (docker-compose.yml) qui met à jour l'IP publique toutes les 30 minutes ; redirection du port TCP 32770 vers le NAS pour le SSH ; installation de l'extension FTP sur OpenMediaVault, activation du service et réglage des limites (clients maximum, connexions par hôte, tentatives, délai d'inactivité) ; génération d'un certificat SSL auto-signé (clé 4096 bits) et activation du TLS obligatoire pour interdire le FTP en clair ; configuration de la plage de ports passifs 49152–65534 et ouverture de ces ports sur la Freebox ; création de l'utilisateur ftpuser, du groupe ftpusers et du dossier partagé uploadsftp ; création des groupes read (lecture seule : read1, read2, read3) et writeread (lecture et écriture : write1), avec ajout au groupe _ssh ; application des ACL (setfacl -R -m g:read:rX) sur le dossier des courts-métrages ; création du RAID 0 avec mdadm (/dev/md0 à partir de sda et sdb), formatage en ext4, montage permanent sur /mnt/usbdrive via /etc/fstab et déclaration du système de fichiers dans OpenMediaVault ; sur la Freebox, ajout du nom de domaine, création des redirections (SSH 32770, FTP 21, ports passifs) et DMZ temporaire vers le NAS pendant la phase de mise en place.
+  3. Tests d'acceptation et vérification du bon fonctionnement : connexion SSH depuis un réseau extérieur (ssh -p 32770), qui a validé toute la chaîne DDNS + NAT + SSH ; authentification réussie des comptes read1, read2, read3 et write1 via le port 32770 ; tentatives réelles d'écriture refusées pour le groupe read et acceptées pour le groupe writeread ; vérification avec lsblk du RAID /dev/md0 de 7,3 To.
+- **Gestion des imprévus / Incidents rencontrés :** Erreur « wrong fs type, bad option » lors du premier montage du RAID (mount -a) : l'analyse des journaux a montré que le volume n'était pas formaté, problème résolu en le formatant en ext4 avant de relancer le montage. Permissions Docker : l'utilisateur omvssh ne pouvait pas exécuter les commandes docker car il n'appartenait pas au groupe docker, problème résolu avec usermod -aG docker omvssh et le redémarrage du service SSH. Fichier no-ip2.conf introuvable : il avait été généré dans /home/omvssh/ au lieu de /usr/local/etc/, il a été localisé avec sudo find / -name no-ip2.conf puis déplacé au bon endroit avec mv.
 
 ## 4. RÔLE ET CONTRIBUTION PERSONNELLE
 *(Particulièrement important si le projet a été mené en équipe)*
-- **Responsabilité précise :** Quelle a été votre mission spécifique ?
-- **Actions menées individuellement :** Quelles configurations ou rédactions avez-vous prises en charge ?
+- **Responsabilité précise :** Concevoir et mettre en place l'ensemble de la solution de NAS accessible depuis l'extérieur, de la configuration réseau jusqu'aux tests de validation, sur une mission confiée par mon tuteur de stage.
+- **Actions menées individuellement :** Création du nom de domaine et de la clé DDNS sur NoIP, déploiement du client NoIP sous Docker, configuration du SSH et des redirections de ports sur la Freebox, installation et sécurisation du serveur FTPS (certificat, TLS obligatoire, ports passifs), création des utilisateurs et des groupes, mise en place des ACL, création du RAID 0 et du montage automatique, résolution des incidents rencontrés, tests depuis un réseau extérieur et rédaction de la documentation et du rapport de stage.
 
 ## 5. LIVRABLES ET PREUVES ASSOCIÉES
 *(Éléments vérifiables à intégrer sur le portfolio)*
-- Procédure technique ou document d'exploitation rédigé
-- Schéma d'architecture ou plan d'adressage
-- Extraits de configurations ou scripts commentés
-- Captures d'écran significatives (avec masquage des données sensibles)
-- Cahier de recette ou rapport de tests
+- Procédure technique ou document d'exploitation rédigé : rapport de stage détaillant la mise en place du DDNS, du SSH, du FTPS, des ACL et du RAID 0, et comptes-rendus d'activité hebdomadaires (CRA)
+- Schéma d'architecture ou plan d'adressage : schéma Internet → Freebox (redirections SSH 32770, FTP 21, ports passifs 49152–65534) → NAS 192.168.1.50, avec le nom de domaine detoursomv.serveftp.com (à réaliser)
+- Extraits de configurations ou scripts commentés : fichier docker-compose.yml du client NoIP, ligne de montage du RAID dans /etc/fstab, commandes mdadm, groupadd, usermod et setfacl
+- Captures d'écran significatives (avec masquage des données sensibles) : création de la clé DDNS sur NoIP, installation de l'extension FTP, section Services d'OpenMediaVault, création du certificat SSL, paramètres du service FTP, redirections de ports de la Freebox (en masquant l'IP publique et la clé DDNS)
+- Cahier de recette ou rapport de tests : tableau des tests de connexion SSH depuis l'extérieur et des tests de droits par groupe (écriture refusée pour read, acceptée pour writeread), et vérification du RAID avec lsblk
 
 ## 6. COMPÉTENCES DU BLOC 1 MOBILISÉES
-- [ ] **B1.1 — Gérer le patrimoine informatique :** [Justification courte]
-- [ ] **B1.2 — Répondre aux incidents et demandes d'assistance :** [Justification courte]
-- [ ] **B1.3 — Développer la présence en ligne :** [Justification courte]
-- [ ] **B1.4 — Travailler en mode projet :** [Justification courte]
-- [ ] **B1.5 — Mettre à disposition des utilisateurs un service informatique :** [Justification courte]
-- [ ] **B1.6 — Organiser son développement professionnel :** [Justification courte]
+- [x] **B1.1 — Gérer le patrimoine informatique :** Regroupement des deux disques en un volume RAID 0 de 7,3 To, mise en place et vérification des niveaux d'habilitation (groupes read et writeread, ACL), gestion des comptes utilisateurs du NAS.
+- [x] **B1.2 — Répondre aux incidents et demandes d'assistance :** Diagnostic et résolution de l'erreur de montage du RAID, du problème de permissions Docker et du fichier de configuration NoIP mal placé, en s'appuyant sur les journaux et les outils de diagnostic (lsblk, find, ss).
+- [ ] **B1.3 — Développer la présence en ligne :** Non mobilisée dans cette réalisation.
+- [x] **B1.4 — Travailler en mode projet :** Analyse du besoin de l'association, définition des objectifs avec le tuteur, organisation de la mission en étapes successives (DDNS/SSH, FTPS, droits, RAID) et suivi avec des comptes-rendus d'activité hebdomadaires.
+- [x] **B1.5 — Mettre à disposition des utilisateurs un service informatique :** Déploiement d'un service de stockage et de transfert de fichiers accessible à distance et chiffré, tests d'acceptation depuis un réseau extérieur, accompagnement des bénévoles en privilégiant des outils graphiques (OpenMediaVault, WinSCP) et une documentation vulgarisée.
+- [x] **B1.6 — Organiser son développement professionnel :** Prise en main d'outils nouveaux (Docker, Docker Compose, mdadm, setfacl, OpenMediaVault), recherche de solutions face aux erreurs rencontrées, rédaction d'une documentation professionnelle et projet d'orientation vers l'administration systèmes et réseaux et la cybersécurité.
 
 ## 7. BILAN RÉFLEXIF ET AUTO-ÉVALUATION
-- **Points forts :** Ce qui a fonctionné de manière fluide et efficace.
-- **Axes d'amélioration :** Ce qui aurait pu être optimisé (sécurité, automatisation, respect du calendrier).
-- **Compétences professionnelles consolidées :** Quels acquis méthodologiques ou techniques retire
+- **Points forts :** Tous les objectifs fixés au départ ont été atteints : NAS joignable par un nom de domaine stable, échanges chiffrés (SSH et FTPS), stockage regroupé à 7,3 To et droits cloisonnés grâce aux ACL. La connexion SSH distante a fonctionné dès le premier essai et les incidents ont été résolus avec une démarche méthodique (lecture des messages d'erreur, journaux, outils de diagnostic).
+- **Axes d'amélioration :** Le RAID 0 n'offre aucune tolérance de panne : la perte d'un disque entraîne la perte de toutes les archives, il faudrait donc passer en RAID 1 ou mettre en place une sauvegarde automatique. Il faut désactiver la DMZ au profit de redirections de ports strictes, interdire la connexion SSH directe en root et privilégier l'authentification par clés. Le certificat auto-signé pourrait être remplacé par un certificat reconnu (par exemple Let's Encrypt). Le pare-feu pourrait être renforcé, et un portail web de consultation des films ajouté.
+- **Compétences professionnelles consolidées :** Administration Linux (utilisateurs, groupes, droits Unix, ACL, RAID logiciel, fstab), configuration d'un routeur (redirections de ports, DMZ, DDNS), sécurisation d'un accès distant (SSH sur port non standard, FTPS avec certificat), conteneurisation avec Docker, et prise en compte des besoins métier d'utilisateurs non spécialistes pour adapter la solution et la documentation.
